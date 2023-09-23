@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roommate Expenses Calculator</title>
+    <style>
+        /* Add your CSS styles here */
+        /* Customize the design as desired */
+
+        /* Container styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        /* Roommate columns */
+        .row {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .column {
+            flex: 1;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px;
+            text-align: center;
+        }
+
+        /* Result styles */
+        #results {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        /* Button styles */
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Roommate Expenses Calculator</h1>
+        <div id="itemUpload">
+            <input type="file" id="csvFile" accept=".csv">
+            <button onclick="handleCSVUpload()">Upload CSV</button>
+        </div>
+        <div class="row">
+            <!-- Roommate columns will be generated here dynamically -->
+        </div>
+        <label for="salesTax">Sales Tax (in %):</label>
+        <input type="number" id="salesTax" placeholder="Enter sales tax percentage">
+        <button onclick="calculateExpenses()">Calculate Expenses</button>
+        <div id="results">
+            <!-- Results will be displayed here -->
+        </div>
+    </div>
+
+    <script>
+        // JavaScript code goes here
+
+        // Initialize item costs and roommates
+        let itemCosts = {};
+        const roommates = ['Ohm', 'Om', 'Niriham', 'Vedant'];
+        const roommateSelections = {}; // Track selections for each roommate
+
+        // Function to generate item checkboxes for a specific roommate
+        function generateItemCheckboxes(roommate) {
+            const roommateDiv = document.createElement('div');
+            roommateDiv.className = 'column';
+            roommateDiv.id = roommate;
+            roommateDiv.innerHTML = `<h2>${roommate}</h2>`;
+
+            for (const item in itemCosts) {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = item;
+                checkbox.id = `${roommate}-${item}`;
+                const label = document.createElement('label');
+                label.htmlFor = checkbox.id;
+                label.appendChild(document.createTextNode(item + ' ($' + itemCosts[item].toFixed(2) + ')'));
+                roommateDiv.appendChild(checkbox);
+                roommateDiv.appendChild(label);
+                roommateDiv.appendChild(document.createElement('br'));
+            }
+
+            document.querySelector('.row').appendChild(roommateDiv);
+        }
+
+        // Function to handle CSV file upload
+        function handleCSVUpload() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    // Parse CSV content
+                    const csvData = e.target.result;
+                    const lines = csvData.split('\n');
+                    itemCosts = {};
+
+                    // Extract items and prices from CSV
+                    lines.forEach((line) => {
+                        const [item, price] = line.split(',');
+                        if (item && price) {
+                            itemCosts[item.trim()] = parseFloat(price.trim());
+                        }
+                    });
+
+                    // Generate item checkboxes for each roommate
+                    roommates.forEach((roommate) => {
+                        generateItemCheckboxes(roommate);
+                    });
+
+                    alert('CSV file uploaded successfully!');
+                };
+
+                reader.readAsText(file);
+            }
+        }
+
+        // Function to calculate expenses based on selected items
+        function calculateExpenses() {
+            // Reset roommate selections and expenses
+            for (const roommate of roommates) {
+                roommateSelections[roommate] = {};
+            }
+
+            const selectedItems = {};
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach((checkbox) => {
+                const [roommate, item] = checkbox.id.split('-');
+                const isChecked = checkbox.checked;
+
+                // Track selections for each roommate
+                if (!roommateSelections[roommate]) {
+                    roommateSelections[roommate] = {};
+                }
+                roommateSelections[roommate][item] = isChecked;
+
+                // Calculate expenses for selected items
+                if (isChecked) {
+                    if (!selectedItems[item]) {
+                        selectedItems[item] = [];
+                    }
+                    selectedItems[item].push(roommate);
+                }
+            });
+
+            // Calculate expenses for each roommate
+            const roommateExpenses = {};
+            for (const item in selectedItems) {
+                const numRoommatesSharingCost = selectedItems[item].length;
+                const costPerRoommate = itemCosts[item] / numRoommatesSharingCost;
+
+                selectedItems[item].forEach((roommate) => {
+                    if (!roommateExpenses[roommate]) {
+                        roommateExpenses[roommate] = 0;
+                    }
+                    roommateExpenses[roommate] += costPerRoommate;
+                });
+            }
+
+            // Apply sales tax
+            const salesTaxInput = document.getElementById('salesTax');
+            const salesTax = parseFloat(salesTaxInput.value) || 0;
+            for (const roommate in roommateExpenses) {
+                const share = roommateExpenses[roommate];
+                const salesTaxAmount = (salesTax / 100) * share;
+                roommateExpenses[roommate] += salesTaxAmount;
+            }
+
+            // Sort roommates
+            const sortedRoommates = Object.keys(roommateExpenses).sort();
+
+            // Display results
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>Expense Calculation</h2>';
+            sortedRoommates.forEach((roommate) => {
+                const share = roommateExpenses[roommate].toFixed(2);
+                resultsDiv.innerHTML += `${roommate}: $${share}<br>`;
+            });
+        }
+    </script>
+</body>
+</html>
